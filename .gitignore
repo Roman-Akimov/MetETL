@@ -1,1 +1,10 @@
 .project_venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.env
+*.log
+.DS_Store
+.flake8
+data/MetObjects.txt
