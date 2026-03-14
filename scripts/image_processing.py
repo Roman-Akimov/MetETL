@@ -3,18 +3,27 @@ import numpy as np
 import os
 import time
 from numpy import float32, uint8
-from numpy.lib.stride_tricks import sliding_window_view
 from numpy.typing import NDArray
 
 # путь к изображениям
 PAINTINGS_DIR = "paintings"
-
 
 # 1 приведение цветного изображения к полутоновому
 def grayscale_manual(image: NDArray[uint8]) -> NDArray[uint8]:
     weights = np.array((0.114, 0.587, 0.299), float32)
     return np.clip(image @ weights, 0, 255).astype(uint8)
 
+def sliding_window_view(image, kernel_shape):
+    kernel_h, kernel_w = kernel_shape
+    # сколько раз ядро поместится по h,w
+    count_h = image.shape[0] - kernel_h + 1
+    count_w = image.shape[1] - kernel_w + 1
+    # 4х мерный массив для хранения всех окон
+    windows = np.zeros((count_h, count_w, kernel_h, kernel_w), dtype=image.dtype)
+    for i in range(count_h):
+        for j in range(count_w):
+            windows[i, j] = image[i:i+kernel_h, j:j+kernel_w]
+    return windows
 
 # 2 свёртка и использованием двумерной маски
 def convolve_manual(image: NDArray[uint8], kernel: NDArray[float32]) -> NDArray[float32]:
@@ -28,7 +37,7 @@ def convolve_manual(image: NDArray[uint8], kernel: NDArray[float32]) -> NDArray[
     # дублируем края тем же цветом
     padded = np.pad(image, pad_width, mode='edge')
     # нарезаем картинку на множество мелких окон размером с наш фильтр
-    windows = sliding_window_view(padded, kernel_shape, axis=(0, 1))
+    windows = sliding_window_view(padded, kernel_shape)
     return np.clip(np.tensordot(windows, kernel), 0, 255)
 
 
