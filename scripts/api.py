@@ -8,7 +8,7 @@ OBJECT_FILE = 'data/MetObjects.csv'
 REQUEST = 'https://collectionapi.metmuseum.org/public/collection/v1/objects/'
 PAINTINGS_DIR = 'paintings'
 
-# 1
+# 1 задание
 object_id = []
 try:
     with open(OBJECT_FILE, mode='r', newline='', encoding='utf-8') as csv_file:
