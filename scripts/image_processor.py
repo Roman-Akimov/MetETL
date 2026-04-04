@@ -16,8 +16,7 @@ from .decorators import timer
 
 @dataclass(slots=True)
 class ImageProcessorPaths:
-    """
-    Конфигурация путей к файлам и конечных точек API.
+    """Конфигурация путей к файлам и конечных точек API.
 
     Аргументы:
         download_dir (str): Директория для скачанных файлов.
@@ -34,8 +33,7 @@ class ImageProcessorPaths:
 
 @final
 class ImageProcessor:
-    """
-    Организует загрузку, обработку и хранение произведений искусства.
+    """Организует загрузку, обработку и хранение произведений искусства.
 
     Аргументы:
         paths (ImageProcessorPaths): Объект конфигурации путей.
