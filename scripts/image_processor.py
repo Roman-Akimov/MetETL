@@ -3,7 +3,6 @@ import os
 from dataclasses import asdict, dataclass
 from json import dump
 import random
-from typing import final
 import csv
 
 import cv2
@@ -16,13 +15,7 @@ from .decorators import timer
 
 @dataclass(slots=True)
 class ImageProcessorPaths:
-    """Конфигурация путей к файлам и конечных точек API.
-
-    Аргументы:
-        download_dir (str): Директория для скачанных файлов.
-        output_dir (str): Директория для сохранения обработанных файлов.
-        metadata_url (str): Базовый URL для API музея Метрополитен.
-    """
+    """Конфигурация путей к файлам и конечных точек API."""
 
     download_dir: str = "paintings/stocks/"
     output_dir: str = "paintings/processed/"
@@ -31,18 +24,13 @@ class ImageProcessorPaths:
     )
 
 
-@final
 class ImageProcessor:
-    """Организует загрузку, обработку и хранение произведений искусства.
-
-    Аргументы:
-        paths (ImageProcessorPaths): Объект конфигурации путей.
-    """
+    """Организует загрузку, обработку и хранение произведений искусства."""
 
     __slots__ = "_paths"
 
     def __init__(self, paths: ImageProcessorPaths | dict[str, str]) -> None:
-        """Инициализирует процессор и проверяет наличие выходных директорий."""
+        """Инициализирует конструктор и проверяет наличие выходных директорий"""
         if isinstance(paths, dict):
             paths = ImageProcessorPaths(**paths)
         self._paths = paths
@@ -70,14 +58,8 @@ class ImageProcessor:
 
     @timer
     def _fetch_painting_metadata(self, object_id: str) -> ArtworkMetadata:
-        """Получает описательные данные для конкретной работы через API Метрополитен.
+        """Получает описательные данные для конкретной работы через API Метрополитен"""
 
-        Аргументы:
-            object_id (str): Уникальный ID произведения.
-
-        Возвращается:
-            ArtworkMetadata: Заполненный объект метаданных.
-        """
         logging.info(f"Получение метаданных для ID объекта: {object_id}")
         response: requests.Response = requests.get(
             f"{self._paths.metadata_url}{object_id}", timeout=10
@@ -93,14 +75,8 @@ class ImageProcessor:
 
     @timer
     def _save_painting(self, metadata: ArtworkMetadata) -> str:
-        """Скачивает файл изображения и сохраняет соответствующие метаданные на диск.
+        """Скачивает файл изображения и сохраняет соответствующие метаданные на диск"""
 
-        Аргументы:
-            metadata (ArtworkMetadata): Объект метаданных с ID и URL изображения.
-
-        Возвращается:
-            str: Локальный путь к сохраненному файлу изображения.
-        """
         painting_id = metadata.objectID
 
         # Сохранение метаданных в JSON
@@ -119,11 +95,8 @@ class ImageProcessor:
 
     @timer
     def _download_random_image(self) -> Artwork:
-        """Высокоуровневый метод для выбора, скачивания и загрузки случайной картины.
+        """Высокоуровневый метод для выбора, скачивания и загрузки случайной картины"""
 
-        Возвращается:
-            Artwork: Инициализированный экземпляр Artwork с данными, загруженными с диска.
-        """
         logging.info("Начало загрузки случайного изображения...")
         random_painting_id = self._get_random_painting_id()
         logging.info(f"Успешно выбран ID случайной картины: {random_painting_id}")
@@ -145,20 +118,8 @@ class ImageProcessor:
         opencv_uses: tuple[bool, ...] | bool,
         painting_id: str = "",
     ) -> Artwork:
-        """Выполняет последовательность операций обработки изображения над картиной.
+        """Выполняет последовательность операций обработки изображения над картиной"""
 
-        Аргументы:
-            operations (tuple[str]): Список операций для применения.
-            opencv_uses (tuple[bool, ...] | bool): Флаги использования OpenCV для каждой операции.
-            painting_id (str, необязательно): Существующий ID для загрузки. Если пусто — скачивает случайное.
-
-        Исключения:
-            ValueError: Если длина списка операций и флагов не совпадает.
-            ValueError: Если указана неподдерживаемая операция.
-
-        Возвращается:
-            Artwork: Конечный объект обработанного произведения.
-        """
         if not isinstance(opencv_uses, bool):
             if len(operations) != len(opencv_uses):
                 raise ValueError(
@@ -207,17 +168,7 @@ class ImageProcessor:
 
     @timer
     def get_artwork_by_id(self, painting_id: str = "") -> Artwork:
-        """Загружает изображение с диска и создает экземпляр нужного подкласса Artwork.
-
-        Аргументы:
-            painting_id (str): ID картины для загрузки.
-
-        Исключения:
-            ValueError: Если файл изображения не найден или не читается через OpenCV.
-
-        Возвращается:
-            Artwork: Объект GrayscaleArtwork или ColorArtwork.
-        """
+        """Загружает изображение с диска и создает экземпляр нужного подкласса Artwork"""
 
         if not painting_id:
             painting_id = self._get_random_painting_id

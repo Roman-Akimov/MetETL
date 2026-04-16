@@ -6,7 +6,6 @@ from scripts.image_processor import ImageProcessor, ImageProcessorPaths
 # Добавление пути к скриптам для корректного импорта модулей
 sys.path.append(os.path.join(os.getcwd(), 'scripts'))
 
-
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
@@ -17,9 +16,7 @@ def main():
         download_dir="paintings/stocks/",
         output_dir="paintings/processed/"
     )
-
     processor = ImageProcessor(paths)
-
     try:
         # Загрузка случайного объекта
         artwork = processor._download_random_image()

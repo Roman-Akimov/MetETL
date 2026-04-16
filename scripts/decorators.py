@@ -4,15 +4,7 @@ from typing import Callable
 
 
 def timer[T, **P](func: Callable[P, T]) -> Callable[P, T]:
-    """ Декоратор, который измеряет и логирует время выполнения функции.
-
-    Аргументы:
-        func (Callable): Функция, время выполнения которой необходимо измерить.
-
-    Возвращается:
-        Callable: Обернутая функция с логикой замера времени.
-    """
-
+    """ Декоратор, который измеряет и логирует время выполнения функции"""
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         logging.info(f"[Начало] '{func.__name__}'")
         start = perf_counter()
