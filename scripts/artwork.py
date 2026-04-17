@@ -9,14 +9,14 @@ from .decorators import timer
 
 @dataclass(frozen=True, slots=True)
 class ArtworkMetadata:
-    """Неизменяемый контейнер для метаданных иллюстрации"""
+    """контейнер для метаданных картинок"""
     objectID: str
     title: str = "Неизвестно"
     primaryImage: str = "Неизвестно"
 
 
 class Artwork(ABC):
-    """Абстрактный базовый класс для иллюстрации, управляющий данными изображения и метаданными"""
+    """Абстрактный базовый класс для картинок, управляющий данными изображения и метаданными"""
     __slots__: tuple[str, ...] = ("_image", "_metadata")
 
     def __init__(self, image: NDArray[uint8], metadata: ArtworkMetadata) -> None:
@@ -25,17 +25,14 @@ class Artwork(ABC):
 
     @property
     def image(self) -> NDArray[uint8]:
-        """Возвращает копию массива изображения для предотвращения изменений"""
         return self._image.copy()
 
     @property
     def metadata(self) -> ArtworkMetadata:
-        """Доступ к неизменяемым метаданным произведения"""
         return self._metadata
 
     @abstractmethod
     def to_grayscale(self, use_opencv: bool = False) -> "Artwork":
-        """Абстрактный метод преобразования изображения в оттенки серого"""
         pass
 
     def _convolve_float(self, kernel: NDArray[float32], use_opencv: bool = False) -> NDArray[float32]:
@@ -65,14 +62,14 @@ class Artwork(ABC):
         return conv_img
 
     def _convolve(self, kernel: NDArray[float32], use_opencv: bool = False) -> "Artwork":
-        """Применяет свертку и возвращает новый объект правильного класса"""
+        """Применяет свертку и возвращает новый объект"""
         float_result = self._convolve_float(kernel, use_opencv)
         result = np.clip(float_result, 0, 255).astype(uint8)
         return self.__class__(result, self.metadata)
 
     @staticmethod
     def _get_gaussian_kernel(kernel_size: int, sigma: float) -> NDArray[float32]:
-        """Создает 2D-ядро Гаусса для сглаживания"""
+        """2d ядро Гаусса для сглаживания"""
         ax = np.linspace(-(kernel_size // 2), kernel_size // 2, kernel_size)
         gauss = np.exp(-((ax / sigma) ** 2) / 2).astype(float64)
         kernel = np.outer(gauss, gauss)
@@ -80,21 +77,20 @@ class Artwork(ABC):
 
     @timer
     def smooth(self, kernel_size: int, use_opencv: bool = False) -> "Artwork":
-        """Применяет размытие по Гауссу для уменьшения шума"""
+        """Применяем размытие по Гауссу для уменьшения шума"""
         kernel = self._get_gaussian_kernel(kernel_size, kernel_size / 6)
         convolved_image = self._convolve(kernel, use_opencv)._image
         return self.__class__(convolved_image, self.metadata)
 
     @timer
     def detect_edges(self, use_opencv: bool = False) -> "Artwork":
-        """Выделяет границы с использованием оператора Собеля"""
         if use_opencv:
             # OpenCV Собель
             gx = cv2.Sobel(self._image, cv2.CV_64F, dx=1, dy=0, ksize=3)
             gy = cv2.Sobel(self._image, cv2.CV_64F, dx=0, dy=1, ksize=3)
             magnitude = cv2.magnitude(gx, gy)
         else:
-            # Обычный Собель
+            # Обычный
             kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float32)
             kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=float32)
             gx = self._convolve_float(kernel_x)
@@ -105,14 +101,12 @@ class Artwork(ABC):
 
     @timer
     def gamma_correction(self, gamma: float, use_opencv: bool = False) -> "Artwork":
-        """Корректирует яркость изображения с помощью гамма-коррекции"""
         inv_gamma = 1.0 / gamma
         table = ((np.arange(256) / 255.0) ** inv_gamma * 255).astype(uint8)
         if use_opencv:
             corrected = cv2.LUT(self._image, table)
         else:
             corrected = table[self._image]
-
         return self.__class__(corrected.astype(uint8), self.metadata)
 
     def __str__(self) -> str:
@@ -169,8 +163,6 @@ class Artwork(ABC):
 
 
 class GrayscaleArtwork(Artwork):
-    """Подкласс Artwork специально для одноканальных изображений в оттенках серого"""
-
     __slots__ = ()
 
     def __init__(self, image: NDArray[uint8], metadata: ArtworkMetadata) -> None:
@@ -185,18 +177,15 @@ class GrayscaleArtwork(Artwork):
 
 
 class ColorArtwork(Artwork):
-    """ Подкласс Artwork для трехканальных цветных изображений (обычно в формате BGR)"""
     __slots__ = ()
 
     def __init__(self, image: NDArray[uint8], metadata: ArtworkMetadata) -> None:
-        """ Преобразует цветное изображение в оттенки серого, используя веса яркости"""
         if image.ndim != 3 or image.shape[2] != 3:
             raise ValueError("Для ColorArtwork нужны 3 параметра!")
 
         super().__init__(image, metadata)
 
     def to_grayscale(self, use_opencv: bool = False) -> "GrayscaleArtwork":
-        """ Преобразует цветное изображение в оттенки серого, используя веса яркости """
         if use_opencv:
             gray_image = cv2.cvtColor(self._image, cv2.COLOR_BGR2GRAY).astype(uint8)
         else:

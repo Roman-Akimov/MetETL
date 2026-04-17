@@ -13,8 +13,6 @@ from .decorators import timer
 
 @dataclass(slots=True)
 class ImageProcessorPaths:
-    """Конфигурация путей к файлам и конечных точек API."""
-
     download_dir: str = "paintings/stocks/"
     output_dir: str = "paintings/processed/"
     metadata_url: str = (
@@ -23,12 +21,9 @@ class ImageProcessorPaths:
 
 
 class ImageProcessor:
-    """Организует загрузку, обработку и хранение произведений искусства."""
-
     __slots__ = "_paths"
 
     def __init__(self, paths: ImageProcessorPaths | dict[str, str]) -> None:
-        """Инициализирует конструктор и проверяет наличие выходных директорий"""
         if isinstance(paths, dict):
             paths = ImageProcessorPaths(**paths)
         self._paths = paths
@@ -37,28 +32,22 @@ class ImageProcessor:
 
     @timer
     def _get_random_painting_id(self) -> str:
-        """Выбирает случайный ID картины из CSV-файла коллекции."""
         painting_ids = []
-
         with open("data/MetObjects.csv", mode="r", encoding="utf-8") as file:
-            # Используем DictReader, чтобы обращаться к столбцам по именам
             reader = csv.DictReader(file)
             for row in reader:
-                # Фильтруем: только картины (Paintings) и только те, что в открытом доступе (Is Public Domain)
                 if row.get('Classification') == 'Paintings' and row.get('Is Public Domain') == 'True':
                     obj_id = row.get('Object ID')
                     if obj_id:
                         painting_ids.append(obj_id)
 
         if not painting_ids:
-            raise ValueError("В CSV не найдено подходящих картин для скачивания.")
+            raise ValueError("не найдено подходящих картин для скачивания.")
         return random.choice(painting_ids)
 
     @timer
     def _fetch_painting_metadata(self, object_id: str) -> ArtworkMetadata:
-        """Получает описательные данные для конкретной работы через API Метрополитен"""
-
-        logging.info(f"Получение метаданных для ID объекта: {object_id}")
+        logging.info(f"Получение метаданных для ID: {object_id}")
         response: requests.Response = requests.get(
             f"{self._paths.metadata_url}{object_id}", timeout=10
         )
@@ -73,15 +62,11 @@ class ImageProcessor:
 
     @timer
     def _save_painting(self, metadata: ArtworkMetadata) -> str:
-        """Скачивает файл изображения и сохраняет соответствующие метаданные на диск"""
-
         painting_id = metadata.objectID
-
         # Сохранение метаданных в JSON
         file_path = os.path.join(self._paths.download_dir, f"{painting_id}.json")
         with open(file_path, "w", encoding="utf-8") as json_file:
             dump(asdict(metadata), json_file, indent=4, ensure_ascii=False)
-
         # Скачивание и сохранение изображения
         response = requests.get(metadata.primaryImage, timeout=10)
         response.raise_for_status()
@@ -93,8 +78,6 @@ class ImageProcessor:
 
     @timer
     def _download_random_image(self) -> Artwork:
-        """Высокоуровневый метод для выбора, скачивания и загрузки случайной картины"""
-
         logging.info("Начало загрузки случайного изображения...")
         random_painting_id = self._get_random_painting_id()
         logging.info(f"Успешно выбран ID случайной картины: {random_painting_id}")
@@ -103,10 +86,9 @@ class ImageProcessor:
         metadata = self._fetch_painting_metadata(random_painting_id)
         logging.info("Метаданные успешно получены")
 
-        logging.info("Сохранение данных и изображения картины...")
+        logging.info("Сохранение данных и изображения картины..")
         _ = self._save_painting(metadata)
         logging.info("Картинку скачали")
-
         return self.get_artwork_by_id(metadata.objectID)
 
     @timer
@@ -116,16 +98,11 @@ class ImageProcessor:
         opencv_uses: tuple[bool, ...] | bool,
         painting_id: str = "",
     ) -> Artwork:
-        """Выполняет последовательность операций обработки изображения над картиной"""
-
         if not isinstance(opencv_uses, bool):
             if len(operations) != len(opencv_uses):
-                raise ValueError(
-                    "Количество флагов opencv_uses должно совпадать с количеством операций"
-                )
+                raise ValueError("Количество флагов opencv_uses должно совпадать с количеством операций")
         else:
             opencv_uses = (opencv_uses,) * len(operations)
-
         if not painting_id:
             logging.info("ID картины не предоставлен, скачивание случайного изображения...")
             artwork = self._download_random_image()
@@ -150,7 +127,6 @@ class ImageProcessor:
 
         file_suffix = "_".join(operations) + ("_opencv" if any(opencv_uses) else "_manual")
 
-        # Save the processed image
         output_path = os.path.join(
             self._paths.output_dir, f"{artwork.metadata.objectID}_{file_suffix}"
         )
@@ -166,8 +142,6 @@ class ImageProcessor:
 
     @timer
     def get_artwork_by_id(self, painting_id: str = "") -> Artwork:
-        """Загружает изображение с диска и создает экземпляр нужного подкласса Artwork"""
-
         if not painting_id:
             painting_id = self._get_random_painting_id()
 
@@ -185,9 +159,7 @@ class ImageProcessor:
 
     @timer
     def save_artwork(self, artwork: Artwork, suffix: str = "_processed") -> None:
-        """Сохраняет объект Artwork"""
         metadata = artwork.metadata
-        # Формируем имя: ID_операция_тип.jpg
         file_name = f"{metadata.objectID}{suffix}.jpg"
         file_path = os.path.join(self._paths.output_dir, file_name)
 
