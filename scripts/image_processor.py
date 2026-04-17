@@ -13,8 +13,8 @@ from .decorators import timer
 
 @dataclass(slots=True)
 class ImageProcessorPaths:
-    download_dir: str = "paintings/stocks/"
-    output_dir: str = "paintings/processed/"
+    download_dir: str
+    output_dir: str
     metadata_url: str = (
         "https://collectionapi.metmuseum.org/public/collection/v1/objects/"
     )
