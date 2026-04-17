@@ -14,7 +14,7 @@ def main():
     )
     processor = ImageProcessor(paths)
     try:
-        artwork = processor._download_random_image()
+        artwork = processor.download_random_image()
         print(f"\nКартина: {artwork.metadata.title}")
         # серый
         gray_manual = artwork.to_grayscale(use_opencv=False)

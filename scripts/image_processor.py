@@ -77,7 +77,7 @@ class ImageProcessor:
         return file_path
 
     @timer
-    def _download_random_image(self) -> Artwork:
+    def download_random_image(self) -> Artwork:
         logging.info("Начало загрузки случайного изображения...")
         random_painting_id = self._get_random_painting_id()
         logging.info(f"Успешно выбран ID случайной картины: {random_painting_id}")
