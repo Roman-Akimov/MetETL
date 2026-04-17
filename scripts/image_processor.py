@@ -4,11 +4,9 @@ from dataclasses import asdict, dataclass
 from json import dump
 import random
 import csv
-
 import cv2
 import numpy as np
 import requests
-
 from .artwork import Artwork, ArtworkMetadata, ColorArtwork, GrayscaleArtwork
 from .decorators import timer
 
@@ -171,7 +169,7 @@ class ImageProcessor:
         """Загружает изображение с диска и создает экземпляр нужного подкласса Artwork"""
 
         if not painting_id:
-            painting_id = self._get_random_painting_id
+            painting_id = self._get_random_painting_id()
 
         image = cv2.imread(
             f"{self._paths.download_dir}{painting_id}.jpg", cv2.IMREAD_UNCHANGED

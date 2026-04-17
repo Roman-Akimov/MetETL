@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from numpy import float32, float64, uint8
 from numpy.typing import NDArray
-
 from .decorators import timer
 
 
@@ -77,7 +76,6 @@ class Artwork(ABC):
         ax = np.linspace(-(kernel_size // 2), kernel_size // 2, kernel_size)
         gauss = np.exp(-((ax / sigma) ** 2) / 2).astype(float64)
         kernel = np.outer(gauss, gauss)
-
         return (kernel / np.sum(kernel)).astype(float32)
 
     @timer
@@ -99,7 +97,6 @@ class Artwork(ABC):
             # Обычный Собель
             kernel_x = np.array([[-1, 0, 1], [-2, 0, 2], [-1, 0, 1]], dtype=float32)
             kernel_y = np.array([[1, 2, 1], [0, 0, 0], [-1, -2, -1]], dtype=float32)
-
             gx = self._convolve_float(kernel_x)
             gy = self._convolve_float(kernel_y)
             magnitude = np.sqrt(gx**2 + gy**2)
@@ -111,7 +108,6 @@ class Artwork(ABC):
         """Корректирует яркость изображения с помощью гамма-коррекции"""
         inv_gamma = 1.0 / gamma
         table = ((np.arange(256) / 255.0) ** inv_gamma * 255).astype(uint8)
-
         if use_opencv:
             corrected = cv2.LUT(self._image, table)
         else:
@@ -122,9 +118,9 @@ class Artwork(ABC):
     def __str__(self) -> str:
         """Возвращает строковое представление метаданных произведения"""
         return (
-            f"Object ID: {self._metadata.objectID}\n"
-            f"Title: {self._metadata.title}\n"
-            f"Primary Image: {self._metadata.primaryImage}\n"
+            f"id: {self._metadata.objectID}\n"
+            f"имя: {self._metadata.title}\n"
+            f"начальный вид: {self._metadata.primaryImage}\n"
         )
 
     def __add__(self, other: "Artwork") -> "Artwork":
@@ -190,7 +186,6 @@ class GrayscaleArtwork(Artwork):
 
 class ColorArtwork(Artwork):
     """ Подкласс Artwork для трехканальных цветных изображений (обычно в формате BGR)"""
-
     __slots__ = ()
 
     def __init__(self, image: NDArray[uint8], metadata: ArtworkMetadata) -> None:
