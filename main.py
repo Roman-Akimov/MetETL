@@ -2,9 +2,8 @@ import logging
 import sys
 import os
 from scripts.image_processor import ImageProcessor, ImageProcessorPaths
-sys.path.append(os.path.join(os.getcwd(), 'scripts'))
 
-# логирование
+sys.path.append(os.path.join(os.getcwd(), 'scripts'))
 logging.basicConfig(level=logging.INFO, format='%(message)s')
 
 
