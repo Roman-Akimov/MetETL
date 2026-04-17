@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import override
 import cv2
 import numpy as np
 from numpy import float32, float64, uint8
@@ -19,7 +18,6 @@ class ArtworkMetadata:
 
 class Artwork(ABC):
     """Абстрактный базовый класс для иллюстрации, управляющий данными изображения и метаданными"""
-
     __slots__: tuple[str, ...] = ("_image", "_metadata")
 
     def __init__(self, image: NDArray[uint8], metadata: ArtworkMetadata) -> None:
@@ -41,53 +39,31 @@ class Artwork(ABC):
         """Абстрактный метод преобразования изображения в оттенки серого"""
         pass
 
-    def _sliding_window(self, padded_img: NDArray[float32], kh: int, kw: int):
-        """
-        Генератор скользящего окна
-        Позволяет итерироваться по окнам, не создавая гигантских массивов в памяти.
-        """
-        h, w = padded_img.shape[:2]
-        out_h = h - kh + 1
-        out_w = w - kw + 1
-
-        for i in range(out_h):
-            for j in range(out_w):
-                # Возвращает окно (slice) для текущей позиции
-                if padded_img.ndim == 3:
-                    yield i, j, padded_img[i:i + kh, j:j + kw, :]
-                else:
-                    yield i, j, padded_img[i:i + kh, j:j + kw]
-
     def _convolve_float(self, kernel: NDArray[float32], use_opencv: bool = False) -> NDArray[float32]:
-        """Свертка изображения с использованием скользящего окна"""
+        """Универсальная быстрая свертка через векторные сдвиги"""
         if use_opencv:
             return cv2.filter2D(self._image, cv2.CV_32F, kernel).astype(float32)
 
-        kh, kw = kernel.shape
-        pad_h, pad_w = kh // 2, kw // 2
+        k_h, k_w = kernel.shape
+        pad_h, pad_w = k_h // 2, k_w // 2
+        h, w = self._image.shape[:2]
 
-        # Настройка паддинга
         if self._image.ndim == 3:
-            pad_width = ((pad_h, pad_h), (pad_w, pad_w), (0, 0))
-            h, w, c = self._image.shape
-            out = np.zeros((h, w, c), dtype=np.float32)
+            pad_cfg = ((pad_h, pad_h), (pad_w, pad_w), (0, 0))
         else:
-            pad_width = ((pad_h, pad_h), (pad_w, pad_w))
-            h, w = self._image.shape
-            out = np.zeros((h, w), dtype=np.float32)
-
-        padded = np.pad(self._image.astype(float32), pad_width, mode="reflect")
-
-        # Основной цикл свертки через sliding_window
-        for i, j, window in self._sliding_window(padded, kh, kw):
-            if window.ndim == 3:
-                # Умножаем ядро на каждый канал окна отдельно (broadcasting)
-                # kernel[:, :, None] превращает (3,3) в (3,3,1) для корректного умножения на (3,3,3)
-                out[i, j] = np.sum(window * kernel[:, :, None], axis=(0, 1))
-            else:
-                out[i, j] = np.sum(window * kernel)
-
-        return out
+            pad_cfg = ((pad_h, pad_h), (pad_w, pad_w))
+        pad_img = np.pad(self._image.astype(float32), pad_cfg, mode='constant')
+        conv_img = np.zeros_like(self._image, dtype=np.float32)
+        for i in range(k_h):
+            for j in range(k_w):
+                weight = kernel[i, j]
+                if weight == 0:
+                    continue
+                if self._image.ndim == 3:
+                    conv_img += pad_img[i:i + h, j:j + w, :] * weight
+                else:
+                    conv_img += pad_img[i:i + h, j:j + w] * weight
+        return conv_img
 
     def _convolve(self, kernel: NDArray[float32], use_opencv: bool = False) -> "Artwork":
         """Применяет свертку и возвращает новый объект правильного класса"""
@@ -143,7 +119,6 @@ class Artwork(ABC):
 
         return self.__class__(corrected.astype(uint8), self.metadata)
 
-    @override
     def __str__(self) -> str:
         """Возвращает строковое представление метаданных произведения"""
         return (
@@ -152,45 +127,49 @@ class Artwork(ABC):
             f"Primary Image: {self._metadata.primaryImage}\n"
         )
 
-    @timer
     def __add__(self, other: "Artwork") -> "Artwork":
         """Смешивает два произведения путем сложения значений их пикселей"""
-        # 1. определяем целевой (максимальный) размер
-        h1, w1 = self._image.shape[:2]
-        h2, w2 = other._image.shape[:2]
+        try:
+            max_height = max(self._image.shape[0], other._image.shape[0])
+            max_width = max(self._image.shape[1], other._image.shape[1])
 
-        target_h = max(h1, h2)
-        target_w = max(w1, w2)
-        target_size = (target_w, target_h)
-        # openCV использует формат (ширина, высота)
+            c_self = self._image.shape[2] if self._image.ndim == 3 else 1
+            c_other = other._image.shape[2] if other._image.ndim == 3 else 1
 
-        # 2. подгоняем изображения под целевой размер, если они не совпадают
-        img_self_raw = self._image
-        if (h1, w1) != (target_h, target_w):
-            img_self_raw = cv2.resize(self._image, target_size, interpolation=cv2.INTER_LINEAR)
+            if c_self == 3 and c_other == 1:
+                raise TypeError("ошибка")
+            if c_self == 1 and c_other == 3:
+                raise TypeError("ошибка")
 
-        img_other_raw = other._image
-        if (h2, w2) != (target_h, target_w):
-            img_other_raw = cv2.resize(other._image, target_size, interpolation=cv2.INTER_LINEAR)
+            # итоговое кол-во каналов
+            final_channels = max(c_self, c_other)
+            if final_channels == 1:
+                canvas = np.zeros((max_height, max_width), dtype=np.float32)
+            else:
+                canvas = np.zeros((max_height, max_width, final_channels), dtype=np.float32)
 
-        # 3. приведение к float32 для точности вычислений
-        img_self = img_self_raw.astype(float32)
-        img_other = img_other_raw.astype(float32)
+            # преобразуем изображения в формат float32 для точных вычислений
+            image_self = self._image.astype(np.float32)
+            image_other = other._image.astype(np.float32)
 
-        # 4. совместимость каналов (Цвет + Ч/Б)
-        if img_self.ndim == 2 and img_other.ndim == 3:
-            img_self = np.stack((img_self,) * 3, axis=-1)
-        elif img_self.ndim == 3 and img_other.ndim == 2:
-            img_other = np.stack((img_other,) * 3, axis=-1)
+            # размещаем изображения
+            if canvas.ndim == 2:
+                # для чб
+                canvas[:self._image.shape[0], :self._image.shape[1]] += image_self
+                canvas[:other._image.shape[0], :other._image.shape[1]] += image_other
+            else:
+                # для цветных
+                canvas[:self._image.shape[0], :self._image.shape[1], :] += image_self
+                canvas[:other._image.shape[0], :other._image.shape[1], :] += image_other
 
-        # 5. сложение с насыщением
-        combined_image = cv2.add(img_self, img_other)
-        # обрезаем значения (clip)
-        result_image = np.clip(combined_image, 0, 255).astype(uint8)
+            result_image = np.clip(canvas, 0, 255).astype(uint8)
+            if result_image.ndim == 2:
+                return GrayscaleArtwork(result_image, self.metadata)
+            return ColorArtwork(result_image, self.metadata)
 
-        if result_image.ndim == 2:
-            return GrayscaleArtwork(result_image, self.metadata)
-        return ColorArtwork(result_image, self.metadata)
+        except TypeError as error:
+            print(f"Ошибка: {error}")
+            return self.__class__(self._image.copy(), self.metadata)
 
 
 class GrayscaleArtwork(Artwork):
