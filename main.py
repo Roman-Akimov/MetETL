@@ -37,6 +37,14 @@ def main():
         gamma_cv = artwork.gamma_correction(gamma=2.2, use_opencv=True)
         processor.save_artwork(gamma_cv, suffix="_gamma_opencv")
 
+        # чб + края
+        new1_1 = artwork.to_grayscale(use_opencv=True)
+        processor.save_artwork(new1_1, suffix="_NEW_11_gray")
+        new1_2 = artwork.detect_edges(use_opencv=True).to_grayscale()
+        processor.save_artwork(new1_2, suffix="_NEW_22__ed-gray")
+        res1 = new1_1 + new1_2
+        processor.save_artwork(res1, suffix="_res1_BW+EDGES")
+
         print("\nЗавершено")
 
     except Exception as e:
