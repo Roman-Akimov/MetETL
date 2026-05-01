@@ -3,8 +3,8 @@ import pandas as pd
 
 def read_csv(path, chunk_size=10000):
     chunks = pd.read_csv(path, chunksize=chunk_size, low_memory=False)
-    for block in chunks:
-        yield block
+    for chunk in chunks:
+        yield chunk
 
 
 def filtered_data(chunks):

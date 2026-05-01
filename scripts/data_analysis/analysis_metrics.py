@@ -91,5 +91,5 @@ def draw_heatmap(metrics_raw):
 
     plt.colorbar()
     plt.tight_layout()
-    plt.savefig("results/3_heatmap.png", dpi=300, bbox_inches="tight")
+    plt.savefig("scripts/data_analysis/results/3_heatmap.png", dpi=300, bbox_inches="tight")
     plt.close()
