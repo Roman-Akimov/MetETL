@@ -20,7 +20,7 @@ def filtered_data(chunks):
         if dept is None or date is None:
             continue
 
-    yield data[[dept, date]].copy()
+        yield data[[dept, date]].copy()
 
 
 def clean_data(chunks):

@@ -13,17 +13,14 @@ def main():
     clean_stream = p.clean_data(filtered_stream)
 
     print("Расчет статистики по отделам...")
-    stats = ac.calculate_statistics(clean_stream)
+    stats, dates_storage = ac.calculate_statistics(clean_stream)
     print(stats.head())
 
     vis.draw_department_chart(stats, "scripts/data_analysis/results/1_departments_stats.png")
 
-    print("Поиск отдела с максимальным разбросом и сбор данных для графика...")
-    raw_stream_v2 = p.read_csv(file_path)
-    filtered_stream_v2 = p.filtered_data(raw_stream_v2)
-    clean_stream_v2 = p.clean_data(filtered_stream_v2)
+    print("Поиск отдела с максимальным разбросом и построение графика...")
+    target_dept, timeline_data = ac.get_max_spread_department(stats, dates_storage)
 
-    target_dept, timeline_data = ac.get_max_spread_department(stats, clean_stream_v2)
     vis.draw_timeline(timeline_data, target_dept, "scripts/data_analysis/results/2_timeline.png")
 
     print("\nДопы")
