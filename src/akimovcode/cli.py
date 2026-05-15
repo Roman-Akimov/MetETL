@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def prepare_logic(csv_path, output_json):
     """Логика формирования JSON списка для скачивания"""
-    
+
     logger.info(f"Подготовка метаданных из {csv_path}")
     paths = ImageProcessorPaths(download_dir="images/originals/", output_dir="images/processed/")
     proc = ImageProcessor(paths)
@@ -25,20 +25,15 @@ async def prepare_logic(csv_path, output_json):
 
 
 async def process_logic(input_json, output_dir, num):
-    """Запуск пайплайна скачивания и обработки"""
-    logger.info(f"Запуск обработки {num} изображений")
-    with open(input_json, 'r') as f:
-        all_ids = json.load(f)
-
-    selected_ids = all_ids[:num]
-    numbered_ids = list(enumerate(selected_ids, start=1))
+    """Запуск сравнения последовательной и асинхронной обработки"""
+    logger.info(f"Запуск сравнения на {num} изображениях")
 
     paths = ImageProcessorPaths(
         download_dir=str(Path(output_dir) / "originals"),
         output_dir=str(Path(output_dir) / "processed")
     )
     proc = ImageProcessor(paths)
-    await proc.process_images_async(numbered_ids)
+    await proc.compare_versions(num)
 
 
 def main():

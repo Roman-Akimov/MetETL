@@ -9,3 +9,8 @@ __pycache__/
 .flake8
 data/MetObjects.csv
 paintings/
+build/
+dist/
+*.egg-info/
+src/*.egg-info/
+src/*/__pycache__/
