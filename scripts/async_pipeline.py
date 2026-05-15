@@ -29,7 +29,7 @@ class ProcessedImage:
 
 
 def process_image(image_bytes: bytes, metadata: ArtworkMetadata, image_number: int) -> ProcessedImage:
-    logging.info(f"Convolution for image {image_number} started (PID {getpid()})")
+    logging.info(f"Cвертка для изображения {image_number} началась (PID {getpid()})")
 
     array = np.frombuffer(image_bytes, np.uint8)
     image = cv2.imdecode(array, cv2.IMREAD_COLOR)
@@ -46,7 +46,7 @@ def process_image(image_bytes: bytes, metadata: ArtworkMetadata, image_number: i
         "gamma_opencv": artwork.gamma_correction(2.2, True).image,
     }
 
-    logging.info(f"Convolution for image {image_number} finished (PID {getpid()})")
+    logging.info(f"Cвертка для изображения {image_number} завершена (PID {getpid()})")
     return ProcessedImage(image_number=image_number, metadata=metadata, results=results)
 
 
@@ -57,12 +57,17 @@ class AsyncImagePipeline:
         os.makedirs(self.paths.output_dir, exist_ok=True)
         self.pool = ProcessPoolExecutor()
 
-    async def close(self) -> None:
-        self.pool.shutdown(wait=True)
-
     async def fetch_metadata(self, session: aiohttp.ClientSession, object_id: str) -> ArtworkMetadata:
         async with session.get(f"{self.paths.metadata_url}{object_id}") as response:
+            if response.status != 200:
+                logging.warning(f"Object ID {object_id} не найден (HTTP {response.status})")
+                return None
             data = await response.json()
+
+            if "objectID" not in data:
+                logging.warning(f"Object ID {object_id}: в ответе нет object_id")
+                return None
+
             return ArtworkMetadata(
                 objectID=str(data["objectID"]),
                 title=data.get("title", "Unknown"),
@@ -74,8 +79,10 @@ class AsyncImagePipeline:
     ) -> AsyncGenerator[tuple[int, ArtworkMetadata, bytes], None]:
         async with aiohttp.ClientSession() as session:
             async def download_single(image_number: int, object_id: str):
-                logging.info(f"Downloading image {image_number} started")
+                logging.info(f"Загрузка изображения {image_number} начата")
                 metadata = await self.fetch_metadata(session, object_id)
+                if metadata is None:
+                    return None
 
                 async with session.get(metadata.primaryImage) as response:
                     image_bytes = await response.read()
@@ -86,7 +93,7 @@ class AsyncImagePipeline:
                 async with aiofiles.open(original_path, "wb") as file:
                     await file.write(image_bytes)
 
-                logging.info(f"Downloading image {image_number} finished")
+                logging.info(f"Загрузка изображения {image_number} завершена")
                 return (image_number, metadata, image_bytes)
 
             tasks = [asyncio.create_task(download_single(num, oid)) for num, oid in numbered_ids]
@@ -112,19 +119,19 @@ class AsyncImagePipeline:
             metadata = processed.metadata
             save_tasks = []
 
-            for suffix, image in processed.results.items():
-                fname = f"{image_number}_{metadata.objectID}_{suffix}.jpg"
+            for name, image in processed.results.items():
+                fname = f"{image_number}_{metadata.objectID}_{name}.jpg"
                 filename = os.path.join(self.paths.output_dir, fname)
-                logging.info(f"Saving image {image_number}: {suffix}")
+                logging.info(f"Сохранение изображения {image_number}: {name}")
                 save_tasks.append(self.save_image(image, filename))
 
             await asyncio.gather(*save_tasks)
-            logging.info(f"Saving image {image_number} finished")
+            logging.info(f"Сохранение изображения {image_number} завершено")
 
     async def save_image(self, image: np.ndarray, filename: str) -> None:
         success, buffer = cv2.imencode(".jpg", image)
         if not success:
-            raise ValueError("Encoding failed")
+            raise ValueError("Ошибка кодирования")
 
         async with aiofiles.open(filename, "wb") as file:
             await file.write(buffer.tobytes())

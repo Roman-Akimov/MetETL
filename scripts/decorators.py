@@ -1,16 +1,35 @@
+import functools
 import logging
 from time import perf_counter
-from typing import Callable
 
 
-def timer[T, **P](func: Callable[P, T]) -> Callable[P, T]:
-    """ Декоратор, который измеряет и логирует время выполнения функции"""
-    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        logging.info(f"[Начало] '{func.__name__}'")
-        start = perf_counter()
+def timer_decorator(func):
+    """Декоратор для sync функций"""
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        logging.info(f"[START] {func.__name__}")
+
+        start_time = perf_counter()
         result = func(*args, **kwargs)
-        end = perf_counter() - start
-        logging.info(f"[Время] {func.__name__} ({end:.4f}с)")
+        elapsed = perf_counter() - start_time
+
+        logging.info(f"[TIME] {func.__name__}: {elapsed:.4f} сек")
+        return result
+
+    return wrapper
+
+
+def measure_time_async(func):
+    """Декоратор для async функций"""
+    @functools.wraps(func)
+    async def wrapper(*args, **kwargs):
+        logging.info(f"[START] {func.__name__}")
+
+        start_time = perf_counter()
+        result = await func(*args, **kwargs)
+        elapsed = perf_counter() - start_time
+
+        logging.info(f"[TIME] {func.__name__}: {elapsed:.4f} сек")
         return result
 
     return wrapper

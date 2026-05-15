@@ -2,12 +2,12 @@ import csv
 import logging
 import random
 from time import perf_counter
-
+from .decorators import measure_time_async
 from .async_pipeline import AsyncImagePipeline, ImageProcessorPaths
 
 
 class ImageProcessor:
-    """Главный управляющий класс приложения"""
+    """Главный управляющий класc"""
 
     def __init__(self, paths: ImageProcessorPaths) -> None:
         self.pipeline = AsyncImagePipeline(paths)
@@ -24,9 +24,6 @@ class ImageProcessor:
                     if object_id:
                         painting_ids.append(object_id)
 
-        if len(painting_ids) < count:
-            raise ValueError("Недостаточно картин для выборки")
-
         return random.sample(painting_ids, count)
 
     def build_numbered_ids(self, count: int) -> list[tuple[int, str]]:
@@ -40,47 +37,57 @@ class ImageProcessor:
 
         return numbered_ids
 
-    async def process_images_async(self, count: int) -> None:
+    @measure_time_async
+    async def process_images_async(self, numbered_ids: list[tuple[int, str]]) -> None:
         """Асинхронная обработка изображений"""
         logging.info("Асинхронная версия")
-        numbered_ids = self.build_numbered_ids(count)
-
-        start = perf_counter()
         await self.pipeline.run(numbered_ids)
-        total_time = perf_counter() - start
-
         logging.info("Асинхронное выполнение завершено")
-        logging.info(f"Время асинхронного выполнения: {total_time:.2f} сек")
 
-    async def process_images_sequential(self, count: int) -> None:
+    @measure_time_async
+    async def process_images_sequential(self, numbered_ids: list[tuple[int, str]]) -> None:
         """Последовательная обработка изображений"""
         logging.info("Последовательная версия")
-        numbered_ids = self.build_numbered_ids(count)
 
-        start = perf_counter()
         for item in numbered_ids:
             await self.pipeline.run([item])
-        total_time = perf_counter() - start
 
         logging.info("Последовательное выполнение завершено")
-        logging.info(f"Время последовательного выполнения: {total_time:.2f} сек")
 
     async def compare_versions(self, count: int) -> None:
-        """Сравнение времени работы версий"""
+        """Сравнение последовательной и асинхронной версий"""
         logging.info("Начало сравнения")
+        numbered_ids = self.build_numbered_ids(count)
 
+        logging.info("Запуск последовательной версии")
         sequential_start = perf_counter()
-        await self.process_images_sequential(count)
+        await self.process_images_sequential(numbered_ids)
         sequential_time = perf_counter() - sequential_start
 
+        logging.info(
+            f"Последовательная версия завершена за "
+            f"{sequential_time:.2f} сек"
+        )
+
+        logging.info("Запуск асинхронной версии")
         async_start = perf_counter()
-        await self.process_images_async(count)
+        await self.process_images_async(numbered_ids)
         async_time = perf_counter() - async_start
 
-        logging.info("Результаты")
+        logging.info(
+            f"Асинхронная версия завершена за "
+            f"{async_time:.2f} сек"
+        )
+
+        logging.info("Результаты сравнения")
         logging.info(f"Последовательно: {sequential_time:.2f} сек")
+
         logging.info(f"Асинхронно: {async_time:.2f} сек")
 
         if async_time > 0:
             speedup = sequential_time / async_time
-            logging.info(f"Ускорение: {speedup:.2f}x")
+
+            logging.info(
+                f"Ускорение асинхронной версии: "
+                f"{speedup:.2f}x"
+            )

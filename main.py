@@ -8,7 +8,7 @@ from scripts.image_processor import ImageProcessor
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 
-async def main() -> None:
+async def main():
     image_count = 3
 
     if len(sys.argv) > 1:
