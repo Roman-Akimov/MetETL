@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 async def prepare_logic(csv_path, output_json):
     """Логика формирования JSON списка для скачивания"""
+    
     logger.info(f"Подготовка метаданных из {csv_path}")
     paths = ImageProcessorPaths(download_dir="images/originals/", output_dir="images/processed/")
     proc = ImageProcessor(paths)
