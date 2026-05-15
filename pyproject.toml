@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "metetl-akimov-6304"
+version = "0.1.0"
+description = "Лабораторная работа №5: Логирование, CLI и сборка проекта"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "pandas",
+    "numpy",
+    "requests",
+    "matplotlib",
+    "opencv-python",
+    "aiohttp",
+    "aiofiles"
+]
+
+[project.scripts]
+metetl = "akimovcode.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
