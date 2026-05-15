@@ -2,7 +2,7 @@ import csv
 import logging
 import random
 from time import perf_counter
-from .decorators import measure_time_async
+from .decorators import timer_decorator
 from .async_pipeline import AsyncImagePipeline, ImageProcessorPaths
 
 
@@ -37,14 +37,14 @@ class ImageProcessor:
 
         return numbered_ids
 
-    @measure_time_async
+    @timer_decorator
     async def process_images_async(self, numbered_ids: list[tuple[int, str]]) -> None:
         """Асинхронная обработка изображений"""
         logging.info("Асинхронная версия")
         await self.pipeline.run(numbered_ids)
         logging.info("Асинхронное выполнение завершено")
 
-    @measure_time_async
+    @timer_decorator
     async def process_images_sequential(self, numbered_ids: list[tuple[int, str]]) -> None:
         """Последовательная обработка изображений"""
         logging.info("Последовательная версия")
