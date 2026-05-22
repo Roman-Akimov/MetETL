@@ -7,6 +7,7 @@ from pathlib import Path
 from akimovcode.images.async_pipeline import ImageProcessorPaths
 from akimovcode.images.image_processor import ImageProcessor
 from akimovcode.analysis import main as run_analysis
+from akimovcode.logging_config import setup_logging
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,7 @@ async def process_logic(input_json, output_dir, num):
 
 
 def main():
+    setup_logging()
     parser = argparse.ArgumentParser(prog="akimov6304", description="Получение картин из музея")
     subparsers = parser.add_subparsers(dest="command", help="Доступные команды")
 
