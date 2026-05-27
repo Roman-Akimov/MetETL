@@ -1,167 +1,93 @@
-import logging
-import os
-from dataclasses import asdict, dataclass
-from json import dump
-import random
 import csv
-import cv2
-import numpy as np
-import requests
-from .artwork import Artwork, ArtworkMetadata, ColorArtwork, GrayscaleArtwork
-from .decorators import timer
-
-
-@dataclass(slots=True)
-class ImageProcessorPaths:
-    download_dir: str
-    output_dir: str
-    metadata_url: str = (
-        "https://collectionapi.metmuseum.org/public/collection/v1/objects/"
-    )
+import logging
+import random
+from time import perf_counter
+from .decorators import timer_decorator
+from .async_pipeline import AsyncImagePipeline, ImageProcessorPaths
 
 
 class ImageProcessor:
-    __slots__ = "_paths"
+    """Главный управляющий класc"""
 
-    def __init__(self, paths: ImageProcessorPaths | dict[str, str]) -> None:
-        if isinstance(paths, dict):
-            paths = ImageProcessorPaths(**paths)
-        self._paths = paths
-        os.makedirs(self._paths.download_dir, exist_ok=True)
-        os.makedirs(self._paths.output_dir, exist_ok=True)
+    def __init__(self, paths: ImageProcessorPaths) -> None:
+        self.pipeline = AsyncImagePipeline(paths)
 
-    @timer
-    def _get_random_painting_id(self) -> str:
+    def get_random_painting_ids(self, count: int) -> list[str]:
+        """Получение случайных ID картин из CSV файла"""
         painting_ids = []
+
         with open("data/MetObjects.csv", mode="r", encoding="utf-8") as file:
             reader = csv.DictReader(file)
             for row in reader:
-                if row.get('Classification') == 'Paintings' and row.get('Is Public Domain') == 'True':
-                    obj_id = row.get('Object ID')
-                    if obj_id:
-                        painting_ids.append(obj_id)
+                if row.get("Classification") == "Paintings" and row.get("Is Public Domain") == "True":
+                    object_id = row.get("Object ID")
+                    if object_id:
+                        painting_ids.append(object_id)
 
-        if not painting_ids:
-            raise ValueError("не найдено подходящих картин для скачивания.")
-        return random.choice(painting_ids)
+        return random.sample(painting_ids, count)
 
-    @timer
-    def _fetch_painting_metadata(self, object_id: str) -> ArtworkMetadata:
-        logging.info(f"Получение метаданных для ID: {object_id}")
-        response: requests.Response = requests.get(
-            f"{self._paths.metadata_url}{object_id}", timeout=10
-        )
-        response.raise_for_status()
-        data: dict[str, str] = response.json()
+    def build_numbered_ids(self, count: int) -> list[tuple[int, str]]:
+        """Подготовка пронумерованного списка ID"""
+        ids = self.get_random_painting_ids(count)
+        numbered_ids = list(enumerate(ids, start=1))
 
-        return ArtworkMetadata(
-            objectID=data["objectID"],
-            title=data.get("title", "Неизвестно"),
-            primaryImage=data.get("primaryImage", "Неизвестно"),
-        )
+        logging.info("Список изображений подготовлен")
+        for number, object_id in numbered_ids:
+            logging.info(f"Изображение {number}: ID {object_id}")
 
-    @timer
-    def _save_painting(self, metadata: ArtworkMetadata) -> str:
-        painting_id = metadata.objectID
-        # Сохранение метаданных в JSON
-        file_path = os.path.join(self._paths.download_dir, f"{painting_id}.json")
-        with open(file_path, "w", encoding="utf-8") as json_file:
-            dump(asdict(metadata), json_file, indent=4, ensure_ascii=False)
-        # Скачивание и сохранение изображения
-        response = requests.get(metadata.primaryImage, timeout=10)
-        response.raise_for_status()
+        return numbered_ids
 
-        file_path = os.path.join(self._paths.download_dir, f"{painting_id}.jpg")
-        with open(file_path, "wb") as img_file:
-            _ = img_file.write(response.content)
-        return file_path
+    @timer_decorator
+    async def process_images_async(self, numbered_ids: list[tuple[int, str]]) -> None:
+        """Асинхронная обработка изображений"""
+        logging.info("Асинхронная версия")
+        await self.pipeline.run(numbered_ids)
+        logging.info("Асинхронное выполнение завершено")
 
-    @timer
-    def download_random_image(self) -> Artwork:
-        logging.info("Начало загрузки случайного изображения...")
-        random_painting_id = self._get_random_painting_id()
-        logging.info(f"Успешно выбран ID случайной картины: {random_painting_id}")
+    @timer_decorator
+    async def process_images_sequential(self, numbered_ids: list[tuple[int, str]]) -> None:
+        """Последовательная обработка изображений"""
+        logging.info("Последовательная версия")
 
-        logging.info("Получение метаданных картины...")
-        metadata = self._fetch_painting_metadata(random_painting_id)
-        logging.info("Метаданные успешно получены")
+        for item in numbered_ids:
+            await self.pipeline.run([item])
 
-        logging.info("Сохранение данных и изображения картины..")
-        _ = self._save_painting(metadata)
-        logging.info("Картинку скачали")
-        return self.get_artwork_by_id(metadata.objectID)
+        logging.info("Последовательное выполнение завершено")
 
-    @timer
-    def run_pipeline(
-        self,
-        operations: tuple[str, ...],
-        opencv_uses: tuple[bool, ...] | bool,
-        painting_id: str = "",
-    ) -> Artwork:
-        if not isinstance(opencv_uses, bool):
-            if len(operations) != len(opencv_uses):
-                raise ValueError("Количество флагов opencv_uses должно совпадать с количеством операций")
-        else:
-            opencv_uses = (opencv_uses,) * len(operations)
-        if not painting_id:
-            logging.info("ID картины не предоставлен, скачивание случайного изображения...")
-            artwork = self._download_random_image()
-        else:
-            logging.info(f"Загрузка изображения с ID: {painting_id}")
-            artwork = self.get_artwork_by_id(painting_id)
+    async def compare_versions(self, count: int) -> None:
+        """Сравнение последовательной и асинхронной версий"""
+        logging.info("Начало сравнения")
+        numbered_ids = self.build_numbered_ids(count)
 
-        logging.info("Изображение успешно загружено")
+        logging.info("Запуск последовательной версии")
+        sequential_start = perf_counter()
+        await self.process_images_sequential(numbered_ids)
+        sequential_time = perf_counter() - sequential_start
 
-        for op, use_opencv in zip(operations, opencv_uses):
-            logging.info(f"Применение операции: {op}")
-            if op == "smooth":
-                artwork = artwork.smooth(5, use_opencv=use_opencv)
-            elif op == "detect_edges":
-                artwork = artwork.detect_edges(use_opencv=use_opencv)
-            elif op == "gamma_correction":
-                artwork = artwork.gamma_correction(2.2, use_opencv=use_opencv)
-            elif op == "grayscale":
-                artwork = artwork.to_grayscale(use_opencv=use_opencv)
-            else:
-                raise ValueError(f"Неподдерживаемая операция - {op}")
-
-        file_suffix = "_".join(operations) + ("_opencv" if any(opencv_uses) else "_manual")
-
-        output_path = os.path.join(
-            self._paths.output_dir, f"{artwork.metadata.objectID}_{file_suffix}"
+        logging.info(
+            f"Последовательная версия завершена за "
+            f"{sequential_time:.2f} сек"
         )
 
-        with open(f"{output_path}.json", 'w') as file:
-            dump(asdict(artwork.metadata), file, indent=4, ensure_ascii=False)
+        logging.info("Запуск асинхронной версии")
+        async_start = perf_counter()
+        await self.process_images_async(numbered_ids)
+        async_time = perf_counter() - async_start
 
-        _ = cv2.imwrite(f"{output_path}.jpg", artwork.image)
-        logging.info(f"Обработанное изображение сохранено в {output_path}")
-        logging.info("Конвейер обработки завершен")
-
-        return artwork
-
-    @timer
-    def get_artwork_by_id(self, painting_id: str = "") -> Artwork:
-        if not painting_id:
-            painting_id = self._get_random_painting_id()
-
-        image = cv2.imread(
-            f"{self._paths.download_dir}{painting_id}.jpg", cv2.IMREAD_UNCHANGED
+        logging.info(
+            f"Асинхронная версия завершена за "
+            f"{async_time:.2f} сек"
         )
 
-        if image is None:
-            raise ValueError(f"Не удалось прочесть ID: {painting_id}")
+        logging.info("Результаты сравнения")
+        logging.info(f"Последовательно: {sequential_time:.2f} сек")
 
-        metadata = self._fetch_painting_metadata(painting_id)
-        if image.ndim == 2:
-            return GrayscaleArtwork(image.astype(np.uint8), metadata)
-        return ColorArtwork(image.astype(np.uint8), metadata)
+        logging.info(f"Асинхронно: {async_time:.2f} сек")
 
-    @timer
-    def save_artwork(self, artwork: Artwork, suffix: str = "_processed") -> None:
-        metadata = artwork.metadata
-        file_name = f"{metadata.objectID}{suffix}.jpg"
-        file_path = os.path.join(self._paths.output_dir, file_name)
+        if async_time > 0:
+            speedup = sequential_time / async_time
 
-        cv2.imwrite(file_path, artwork.image)
-        logging.info(f"Сохранено: {file_path}")
+            logging.info(
+                f"Ускорение асинхронной версии: "
+                f"{speedup:.2f}x"
+            )

@@ -4,7 +4,6 @@ import cv2
 import numpy as np
 from numpy import float32, float64, uint8
 from numpy.typing import NDArray
-from .decorators import timer
 
 
 @dataclass(frozen=True, slots=True)
@@ -75,14 +74,12 @@ class Artwork(ABC):
         kernel = np.outer(gauss, gauss)
         return (kernel / np.sum(kernel)).astype(float32)
 
-    @timer
     def smooth(self, kernel_size: int, use_opencv: bool = False) -> "Artwork":
         """Применяем размытие по Гауссу для уменьшения шума"""
         kernel = self._get_gaussian_kernel(kernel_size, kernel_size / 6)
         convolved_image = self._convolve(kernel, use_opencv)._image
         return self.__class__(convolved_image, self.metadata)
 
-    @timer
     def detect_edges(self, use_opencv: bool = False) -> "Artwork":
         if use_opencv:
             # OpenCV Собель
@@ -99,7 +96,6 @@ class Artwork(ABC):
 
         return self.__class__(np.clip(magnitude, 0, 255).astype(uint8), self.metadata)
 
-    @timer
     def gamma_correction(self, gamma: float, use_opencv: bool = False) -> "Artwork":
         inv_gamma = 1.0 / gamma
         table = ((np.arange(256) / 255.0) ** inv_gamma * 255).astype(uint8)
