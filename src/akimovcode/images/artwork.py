@@ -4,6 +4,9 @@ import cv2
 import numpy as np
 from numpy import float32, float64, uint8
 from numpy.typing import NDArray
+import logging
+from akimovcode.logging_config import setup_logging
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -123,9 +126,9 @@ class Artwork(ABC):
             c_other = other._image.shape[2] if other._image.ndim == 3 else 1
 
             if c_self == 3 and c_other == 1:
-                raise TypeError("ошибка")
+                raise TypeError("ошибка: невозможно смешать цветное и черно-белое изображение")
             if c_self == 1 and c_other == 3:
-                raise TypeError("ошибка")
+                raise TypeError("ошибка: невозможно смешать черно-белое и цветное изображение")
 
             # итоговое кол-во каналов
             final_channels = max(c_self, c_other)
@@ -154,7 +157,7 @@ class Artwork(ABC):
             return ColorArtwork(result_image, self.metadata)
 
         except TypeError as error:
-            print(f"Ошибка: {error}")
+            logger.error(f"Ошибка при смешивании изображений: {error}")
             return self.__class__(self._image.copy(), self.metadata)
 
 
@@ -190,3 +193,9 @@ class ColorArtwork(Artwork):
             gray_image = np.clip(self._image @ weights, 0, 255).astype(uint8)
 
         return GrayscaleArtwork(gray_image, self.metadata)
+
+
+# Настройка логирования при прямом запуске файла
+if __name__ == "__main__":
+    setup_logging()
+    logger.info("Модуль artwork.py загружен")

@@ -2,7 +2,7 @@ import csv
 import logging
 import random
 from time import perf_counter
-from .decorators import timer_decorator
+from akimovcode.decorators import timer_decorator
 from .async_pipeline import AsyncImagePipeline, ImageProcessorPaths
 
 
