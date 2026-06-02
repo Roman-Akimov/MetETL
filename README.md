@@ -43,7 +43,7 @@ API музея — для скачивания изображений:
 
 https://collectionapi.metmuseum.org/public/collection/v1/objects/{id}
 
-
+# 
 1. Установка пакета
 
 pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple metetl-akimov-6304
